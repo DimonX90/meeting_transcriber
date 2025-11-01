@@ -1,6 +1,3 @@
-venv/
+.venv/
 .env
-__pycache__/
-*.pyc
-.DS_Store
-data/
+meeting-transcriber-473210-a77ef90f5ed7.json

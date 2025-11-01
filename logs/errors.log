@@ -1,0 +1,7 @@
+
+===== 2025-09-28 =====
+2025-09-28 21:05:46 [ERROR] transcriber: [Worker] Ошибка при обработке Daily DEV Standup.mp4: 'str' object has no attribute 'get'
+
+===== 2025-11-01 =====
+2025-11-01 10:49:56 [ERROR] transcriber: [Worker] Ошибка при обработке Daily Design CRM (Yuliia UXUI).mp4: 'str' object has no attribute 'get'
+2025-11-01 10:50:49 [ERROR] transcriber: [Drive] Ошибка при получении файлов: <HttpError 500 when requesting https://www.googleapis.com/drive/v3/files?q=%271rx9ZTORG7AB-82Qej-0iCZ4DkPM_OpgB%27+in+parents+and+trashed+%3D+false&fields=files%28id%2C+name%29&alt=json returned "Internal Error". Details: "[{'message': 'Internal Error', 'domain': 'global', 'reason': 'internalError'}]">
