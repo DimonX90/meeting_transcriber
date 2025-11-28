@@ -285,7 +285,7 @@ async def process_file(file, service,DATA_DIR,base_filename,record_id,transcript
         lang = get_langoage(base_filename)
 
         # Транскрипция
-        full_text, transcription_segments = transcribe_audio(audio_temp_path, "large", lang)
+        full_text, transcription_segments = transcribe_audio(audio_temp_path, "medium", lang)
 
         speaker_text = assign_speakers_to_text(segments,transcription_segments)
 
