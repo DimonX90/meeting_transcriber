@@ -79,58 +79,9 @@ def get_file_link(file_id: str) -> str:
     return f"https://drive.google.com/file/d/{file_id}/view?usp=sharing"
 
 
-# def get_drive_service_oauth2():
-#     """Создаёт клиент Google Drive через OAuth 2.0"""
-#
-#     creds = None
-#     if os.path.exists(TOKEN_FILE):
-#         with open(TOKEN_FILE, 'rb') as token:
-#             creds = pickle.load(token)
-#     if not creds or not creds.valid:
-#         flow = InstalledAppFlow.from_client_secrets_file(CREDENTIALS_FILE, SCOPES)
-#         creds = flow.run_local_server(port=0)
-#         with open(TOKEN_FILE, 'wb') as token:
-#             pickle.dump(creds, token)
-#     service = build('drive', 'v3', credentials=creds)
-#     return service
-
-# def get_drive_service_oauth2():
-#     """Создаёт клиент Google Drive через OAuth 2.0"""
-#
-#     creds = None
-#
-#     # Load existing token
-#     if os.path.exists(TOKEN_FILE):
-#         with open(TOKEN_FILE, 'rb') as token:
-#             creds = pickle.load(token)
-#
-#     # Refresh if expired
-#     if creds and creds.expired and creds.refresh_token:
-#         try:
-#             creds.refresh(Request())
-#         except Exception:
-#             creds = None
-#
-#     # Request new token if needed
-#     if not creds or not creds.valid:
-#         flow = InstalledAppFlow.from_client_secrets_file(
-#             CREDENTIALS_FILE,
-#             SCOPES
-#         )
-#         creds = flow.run_local_server(
-#             port=0,
-#             access_type="offline",
-#             prompt="consent"
-#         )
-#
-#         with open(TOKEN_FILE, 'wb') as token:
-#             pickle.dump(creds, token)
-#
-#     service = build('drive', 'v3', credentials=creds)
-#     return service
 
 def get_drive_service_oauth2():
-    """Создаёт клиент Google Drive через OAuth 2.0 для headless-сервера"""
+    """Создаёт клиент Google Drive через OAuth 2.0"""
 
     creds = None
 
@@ -152,12 +103,12 @@ def get_drive_service_oauth2():
             CREDENTIALS_FILE,
             SCOPES
         )
+        creds = flow.run_local_server(
+            port=0,
+            access_type="offline",
+            prompt="consent"
+        )
 
-        # Используем консольный поток вместо локального сервера
-        # Сервер выдаёт ссылку, пользователь открывает в браузере
-        creds = flow.run_console(prompt='consent')
-
-        # Save token
         with open(TOKEN_FILE, 'wb') as token:
             pickle.dump(creds, token)
 
