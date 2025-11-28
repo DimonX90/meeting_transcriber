@@ -1,3 +1,6 @@
 .venv/
 .env
 meeting-transcriber-473210-a77ef90f5ed7.json
+logs/errors.log
+client_secret_*.json
+core/token.pickle

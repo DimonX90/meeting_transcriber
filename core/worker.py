@@ -1,6 +1,6 @@
 
 from services.airtable_service import AirtableClient
-from services.drive_service import list_files_in_folder, get_drive_service, find_matching_transcription, get_file_link
+from services.drive_service import list_files_in_folder, get_drive_service, find_matching_transcription, get_file_link, get_drive_service_oauth2
 from core.utils import safe_execute
 import os
 from dotenv import load_dotenv
@@ -74,13 +74,14 @@ async def poll_files(service):
                     logger.info(
                         f"Пара файлов готова: видео = {f['name']}, транскрипт = {transcription_file['name']}"
                     )
-                    result = await airtable.create_record(fields)
+                    record_id = await airtable.create_record(fields)
+
                     logger.info("Новая запись в Airtable создана")
 
                     #Добавляем файлы в очередь для обработки
                     while file_queue:
                         f = file_queue.pop(0)
-                        task = asyncio.create_task(process_file(f, service, os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "temp"))))
+                        task = asyncio.create_task(process_file(f, service, os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "temp")),base_filename, record_id,transcription_file))
                         tasks.add(task)
                         task.add_done_callback(tasks.discard)
 

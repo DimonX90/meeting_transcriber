@@ -4,10 +4,15 @@ import logging
 from pyannote.audio import Pipeline
 from core.logger import logger
 import uuid
+import sys
 
 def extract_audio(video_path: str, file_name) -> bool:
     """Извлекаем аудио из видео с помощью ffmpeg"""
-    FFMPEG_BIN =  os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "bin", "ffmpeg.exe"))
+    if sys.platform.startswith("win"):
+        FFMPEG_BIN = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "bin", "ffmpeg.exe"))
+    else:
+        # Для Linux/macOS используем системный ffmpeg
+        FFMPEG_BIN = "/usr/bin/ffmpeg"  # Обычно установлен через apt/yum/brew
 
 
     file_name = os.path.splitext(file_name)[0]
@@ -41,6 +46,24 @@ def extract_audio(video_path: str, file_name) -> bool:
 
 
 def diarize_audio(audio_path: str):
+    prepared_path = os.path.join(os.path.dirname(audio_path), "_prepared_audio.wav")
+    # путь к ffmpeg.exe в проекте
+    if sys.platform.startswith("win"):
+        FFMPEG_BIN = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "bin", "ffmpeg.exe"))
+    else:
+        # Для Linux/macOS используем системный ffmpeg
+        FFMPEG_BIN = "/usr/bin/ffmpeg"  # Обычно установлен через apt/yum/brew
+
+    command = [
+        FFMPEG_BIN,
+        "-y",
+        "-i", audio_path,
+        "-af", "aresample=16000,volume=1.0,afftdn",  # ресемплинг, нормализация, шумоподавление
+        "-ac", "1",  # моно
+        "-c:a", "pcm_s16le",
+        prepared_path
+    ]
+    subprocess.run(command, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     """
     Разбиваем аудио на спикеров через pyannote.audio.
     Адаптировано для Windows без симлинков.
@@ -55,7 +78,7 @@ def diarize_audio(audio_path: str):
             use_auth_token=os.getenv("HF_TOKEN")  # Если нужен токен Hugging Face
         )
 
-        diarization = pipeline(audio_path)
+        diarization = pipeline(prepared_path)
 
         segments = []
         for turn, _, speaker in diarization.itertracks(yield_label=True):
@@ -68,6 +91,9 @@ def diarize_audio(audio_path: str):
         num_speakers = len(set([s['speaker'] for s in segments]))
         logger.info(f"[Diarization] Аудио разбито на {num_speakers} спикеров")
         return segments
+
+        # Удаляем временные файлы
+        os.remove(prepared_path)
 
     except Exception as e:
         logger.error(f"[Diarization] Ошибка разметки спикеров: {e}")

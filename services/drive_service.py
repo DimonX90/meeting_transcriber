@@ -1,16 +1,33 @@
 import logging
+from io import BytesIO
 from core.logger import logger
-from googleapiclient.http import MediaIoBaseDownload
+from googleapiclient.http import MediaIoBaseDownload, MediaFileUpload, MediaIoBaseUpload
+from google.auth.transport.requests import Request
 from googleapiclient.discovery import build
 from google.oauth2 import service_account
 from core.utils import get_env_file_path, safe_execute
 import os
 from dotenv import load_dotenv
+import tempfile
+from docx import Document
+from docx.shared import Pt
+from google.oauth2.credentials import Credentials
+from google_auth_oauthlib.flow import InstalledAppFlow
+import pickle
+from typing import List, Dict
+
 
 load_dotenv()
 
 SERVICE_ACCOUNT_JSON = get_env_file_path("SERVICE_ACCOUNT_FILE")
+# Права доступа
+SCOPES = ['https://www.googleapis.com/auth/drive.file']
 
+# Путь к OAuth JSON
+CREDENTIALS_FILE = get_env_file_path("OAUTH_ACCOUNT_FILE")
+CORE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "core"))
+TOKEN_FILE = os.path.join(CORE_DIR, "token.pickle")
+logger.info(TOKEN_FILE)
 
 
 def get_drive_service():
@@ -62,6 +79,57 @@ def get_file_link(file_id: str) -> str:
     return f"https://drive.google.com/file/d/{file_id}/view?usp=sharing"
 
 
+# def get_drive_service_oauth2():
+#     """Создаёт клиент Google Drive через OAuth 2.0"""
+#
+#     creds = None
+#     if os.path.exists(TOKEN_FILE):
+#         with open(TOKEN_FILE, 'rb') as token:
+#             creds = pickle.load(token)
+#     if not creds or not creds.valid:
+#         flow = InstalledAppFlow.from_client_secrets_file(CREDENTIALS_FILE, SCOPES)
+#         creds = flow.run_local_server(port=0)
+#         with open(TOKEN_FILE, 'wb') as token:
+#             pickle.dump(creds, token)
+#     service = build('drive', 'v3', credentials=creds)
+#     return service
+
+def get_drive_service_oauth2():
+    """Создаёт клиент Google Drive через OAuth 2.0"""
+
+    creds = None
+
+    # Load existing token
+    if os.path.exists(TOKEN_FILE):
+        with open(TOKEN_FILE, 'rb') as token:
+            creds = pickle.load(token)
+
+    # Refresh if expired
+    if creds and creds.expired and creds.refresh_token:
+        try:
+            creds.refresh(Request())
+        except Exception:
+            creds = None
+
+    # Request new token if needed
+    if not creds or not creds.valid:
+        flow = InstalledAppFlow.from_client_secrets_file(
+            CREDENTIALS_FILE,
+            SCOPES
+        )
+        creds = flow.run_local_server(
+            port=0,
+            access_type="offline",
+            prompt="consent"
+        )
+
+        with open(TOKEN_FILE, 'wb') as token:
+            pickle.dump(creds, token)
+
+    service = build('drive', 'v3', credentials=creds)
+    return service
+
+
 def download_file_to_path(file_id: str, destination_path: str):
     """Скачивает файл с Google Drive по ID в указанный путь"""
     try:
@@ -80,3 +148,56 @@ def download_file_to_path(file_id: str, destination_path: str):
         return False
 
 
+
+
+
+def save_transcription_to_drive(speaker_text: List[Dict], folder_id: str, base_filename: str = None):
+    """
+    Сохраняет транскрипцию со спикерами в временный DOCX и загружает в Google Drive.
+
+    Параметры:
+        speaker_text: List[Dict] с ключами 'start', 'end', 'speaker', 'text'
+        folder_id: ID папки Google Drive
+        base_filename: имя файла, если None — auto генерируется
+
+    Возвращает:
+        dict с 'file_id' и 'webViewLink'
+    """
+    try:
+        file_name = f"transcription_{base_filename}.docx"
+
+        # Создаём временный DOCX
+        doc = Document()
+        doc.add_heading("Transcription", level=1)
+
+        for segment in speaker_text:
+            start = round(segment['start'], 2)
+            end = round(segment['end'], 2)
+            speaker = segment['speaker']
+            text = segment['text']
+            p = doc.add_paragraph()
+            run = p.add_run(f"[{start}-{end}] {speaker}: {text}")
+            run.font.size = Pt(11)
+
+        file_stream = BytesIO()
+        doc.save(file_stream)
+        doc = None
+        # Перемещаем курсор в начало
+        file_stream.seek(0)
+        logger.info(f"[Transcription] Временный DOCX создан: {file_name}")
+
+        # Загружаем в Google Drive
+        service = get_drive_service_oauth2()
+        file_metadata = {"name": file_name, "parents": [folder_id]}
+        media = MediaIoBaseUpload(file_stream,mimetype="application/vnd.openxmlformats-officedocument.wordprocessingml.document")
+        file = service.files().create(body=file_metadata, media_body=media, fields="id, webViewLink").execute()
+        logger.info(f"[Drive] Файл '{file_name}' загружен: {file.get('webViewLink')}")
+
+        file_stream.close()  # закрываем поток
+
+
+        return {"file_id": file["id"], "webViewLink": file.get("webViewLink")}
+
+    except Exception as e:
+        logger.error(f"[Drive] Ошибка при сохранении транскрипции: {e}")
+        return None

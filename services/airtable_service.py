@@ -23,7 +23,8 @@ class AirtableClient:
 
     async def create_record(self, fields: dict):
         try:
-            return self.table.create(fields)
+            record = self.table.create(fields)
+            return record.get("id") if record else None
         except Exception as e:
             logger.error(f"[Airtable CREATE] Ошибка создания записи: {e}")
             return None
