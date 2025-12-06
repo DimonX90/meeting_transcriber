@@ -15,7 +15,8 @@ from google.oauth2.credentials import Credentials
 from google_auth_oauthlib.flow import InstalledAppFlow
 import pickle
 from typing import List, Dict
-
+import base64
+import requests
 
 load_dotenv()
 
@@ -51,7 +52,7 @@ def list_files_in_folder(service, folder_id: str):
             logging.error("[Drive] Сервис не инициализирован")
             return []
         query = f"'{folder_id}' in parents and trashed = false"
-        results = service.files().list(q=query, fields="files(id, name)").execute()
+        results = service.files().list(q=query, fields="files(id, name, mimeType)").execute()
         return results.get("files", [])
     except Exception as e:
         logger.error(f"[Drive] Ошибка при получении файлов: {e}")
@@ -67,7 +68,11 @@ def find_matching_transcription(service, transcription_folder_id: str, base_file
         return None
 
     for f in files:
+        mime = f.get("mimeType", "")
+        name = f.get("name", "").lower()
         name_without_ext = os.path.splitext(f["name"])[0]
+        if mime != "text/vtt" and not name.endswith(".vtt"):
+            continue
         if name_without_ext == base_filename:
             return f
     return None
@@ -137,22 +142,73 @@ def download_file_to_path(file_id: str, destination_path: str):
 
 
 
-def save_transcription_to_drive(speaker_text: List[Dict], folder_id: str, base_filename: str = None):
+# def save_transcription_to_drive(speaker_text: List[Dict], folder_id: str, base_filename: str = None):
+#     """
+#     Сохраняет транскрипцию со спикерами в временный DOCX и загружает в Google Drive.
+#
+#     Параметры:
+#         speaker_text: List[Dict] с ключами 'start', 'end', 'speaker', 'text'
+#         folder_id: ID папки Google Drive
+#         base_filename: имя файла, если None — auto генерируется
+#
+#     Возвращает:
+#         dict с 'file_id' и 'webViewLink'
+#     """
+#     try:
+#         file_name = f"transcription_{base_filename}.docx"
+#
+#         # Создаём временный DOCX
+#         doc = Document()
+#         doc.add_heading("Transcription", level=1)
+#
+#         for segment in speaker_text:
+#             start = round(segment['start'], 2)
+#             end = round(segment['end'], 2)
+#             speaker = segment['speaker']
+#             text = segment['text']
+#             p = doc.add_paragraph()
+#             run = p.add_run(f"[{start}-{end}] {speaker}: {text}")
+#             run.font.size = Pt(11)
+#
+#         file_stream = BytesIO()
+#         doc.save(file_stream)
+#         doc = None
+#         # Перемещаем курсор в начало
+#         file_stream.seek(0)
+#         logger.info(f"[Transcription] Временный DOCX создан: {file_name}")
+#
+#         # Загружаем в Google Drive
+#         service = get_drive_service_oauth2()
+#
+#         file_metadata = {"name": file_name, "parents": [folder_id]}
+#         media = MediaIoBaseUpload(file_stream,mimetype="application/vnd.openxmlformats-officedocument.wordprocessingml.document")
+#         file = service.files().create(body=file_metadata, media_body=media, fields="id, webViewLink").execute()
+#         logger.info(f"[Drive] Файл '{file_name}' загружен: {file.get('webViewLink')}")
+#
+#         file_stream.close()  # закрываем поток
+#
+#
+#         return {"file_id": file["id"], "webViewLink": file.get("webViewLink")}
+#
+#     except Exception as e:
+#         logger.error(f"[Drive] Ошибка при сохранении транскрипции: {e}")
+#         return None
+
+# Настройки для Apps Script
+APPS_SCRIPT_URL = os.getenv("APPS_SCRIPT_URL")
+SECRET_KEY = os.getenv("SECRET_KEY")
+def save_transcription_to_drive(speaker_text, folder_id, base_filename=None):
     """
-    Сохраняет транскрипцию со спикерами в временный DOCX и загружает в Google Drive.
-
+    Сохраняет транскрипцию со спикерами в DOCX и загружает в Google Drive через Apps Script.
     Параметры:
-        speaker_text: List[Dict] с ключами 'start', 'end', 'speaker', 'text'
-        folder_id: ID папки Google Drive
-        base_filename: имя файла, если None — auto генерируется
-
-    Возвращает:
-        dict с 'file_id' и 'webViewLink'
+        speaker_text: список секций {'start', 'end', 'speaker', 'text'}
+        folder_id: ID папки для записи (обычно ключ папки, который использует Apps Script)
+        base_filename: имя файла без расширения
     """
     try:
-        file_name = f"transcription_{base_filename}.docx"
+        file_name = f"transcription_{base_filename or 'auto'}.docx"
 
-        # Создаём временный DOCX
+        # --- Генерация DOCX в памяти ---
         doc = Document()
         doc.add_heading("Transcription", level=1)
 
@@ -161,28 +217,42 @@ def save_transcription_to_drive(speaker_text: List[Dict], folder_id: str, base_f
             end = round(segment['end'], 2)
             speaker = segment['speaker']
             text = segment['text']
+
             p = doc.add_paragraph()
             run = p.add_run(f"[{start}-{end}] {speaker}: {text}")
             run.font.size = Pt(11)
 
         file_stream = BytesIO()
         doc.save(file_stream)
-        doc = None
-        # Перемещаем курсор в начало
         file_stream.seek(0)
+        doc = None
+
         logger.info(f"[Transcription] Временный DOCX создан: {file_name}")
 
-        # Загружаем в Google Drive
-        service = get_drive_service_oauth2()
-        file_metadata = {"name": file_name, "parents": [folder_id]}
-        media = MediaIoBaseUpload(file_stream,mimetype="application/vnd.openxmlformats-officedocument.wordprocessingml.document")
-        file = service.files().create(body=file_metadata, media_body=media, fields="id, webViewLink").execute()
-        logger.info(f"[Drive] Файл '{file_name}' загружен: {file.get('webViewLink')}")
+        # --- Кодируем в Base64 ---
+        file_b64 = base64.b64encode(file_stream.read()).decode("utf-8")
+        file_stream.close()
 
-        file_stream.close()  # закрываем поток
+        # --- Отправляем файл в Apps Script ---
+        payload = {
+            "secret": SECRET_KEY,
+            "folder": folder_id,        # ключ папки в Apps Script, не raw Drive ID
+            "name": file_name,
+            "content_b64": file_b64
+        }
 
+        response = requests.post(APPS_SCRIPT_URL, json=payload)
+        result = response.json()
 
-        return {"file_id": file["id"], "webViewLink": file.get("webViewLink")}
+        if not result.get("success"):
+            raise Exception(result.get("error", "Unknown error"))
+
+        logger.info(f"[Drive] Файл '{file_name}' загружен: {result.get('url')}")
+
+        return {
+            "file_id": result.get("fileId"),
+            "webViewLink": result.get("url"),
+        }
 
     except Exception as e:
         logger.error(f"[Drive] Ошибка при сохранении транскрипции: {e}")

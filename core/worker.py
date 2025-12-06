@@ -59,6 +59,12 @@ async def poll_files(service):
         if files:
             for f in files:
                 if f['id'] not in seen:
+                    mime = f.get("mimeType", "")
+                    name = f.get("name", "").lower()
+
+                    if mime != "video/mp4" and not name.endswith(".mp4"):
+                        continue
+
                     seen.add(f['id'])
                     file_queue.append(f)
                     logger.info(f"Новый файл: {f['name']} добавлен в очередь")
@@ -76,7 +82,7 @@ async def poll_files(service):
                     )
                     record_id = await airtable.create_record(fields)
 
-                    logger.info("Новая запись в Airtable создана")
+                    # logger.info("Новая запись в Airtable создана")
 
                     #Добавляем файлы в очередь для обработки
                     while file_queue:

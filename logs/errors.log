@@ -1,0 +1,33 @@
+
+===== 2025-12-05 =====
+2025-12-05 18:59:01 [ERROR] transcriber: [AssemblyAI] Ошибка транскрипции: TranscriptionConfig.__init__() got an unexpected keyword argument 'word_timestamps'
+
+===== 2025-12-05 =====
+2025-12-05 19:59:55 [ERROR] transcriber: [AssemblyAI] Ошибка транскрипции: Failed to upload audio file: 
+Reason: Invalid API key
+
+Request: <Request('POST', 'https://api.assemblyai.com/v2/upload')>
+
+===== 2025-12-05 =====
+2025-12-05 20:07:45 [ERROR] transcriber: [AssemblyAI] Ошибка транскрипции: Failed to upload audio file: 
+Reason: Invalid API key
+
+Request: <Request('POST', 'https://api.assemblyai.com/v2/upload')>
+2025-12-05 20:08:12 [ERROR] transcriber: [Worker] Ошибка при обработке Daily Design CRM (Yuliia UXUI).mp4: Дата не найдена в имени файла: Daily Design CRM (Yuliia UXUI)
+
+===== 2025-12-05 =====
+2025-12-05 20:12:58 [ERROR] transcriber: [AssemblyAI] Ошибка транскрипции: Failed to upload audio file: 
+Reason: Invalid API key
+
+Request: <Request('POST', 'https://api.assemblyai.com/v2/upload')>
+
+===== 2025-12-05 =====
+2025-12-05 20:18:01 [ERROR] transcriber: [Drive] Ошибка при сохранении транскрипции: <HttpError 403 when requesting https://www.googleapis.com/upload/drive/v3/files?fields=id%2C+webViewLink&alt=json&uploadType=multipart returned "Service Accounts do not have storage quota. Leverage shared drives (https://developers.google.com/workspace/drive/api/guides/about-shareddrives), or use OAuth delegation (http://support.google.com/a/answer/7281227) instead.". Details: "[{'message': 'Service Accounts do not have storage quota. Leverage shared drives (https://developers.google.com/workspace/drive/api/guides/about-shareddrives), or use OAuth delegation (http://support.google.com/a/answer/7281227) instead.', 'domain': 'usageLimits', 'reason': 'storageQuotaExceeded'}]">
+2025-12-05 20:18:01 [ERROR] transcriber: [Worker] Ошибка при обработке Daily DEV Standup-20250505_090920-Meeting Recording.mp4: 'NoneType' object has no attribute 'get'
+
+===== 2025-12-05 =====
+2025-12-05 20:32:45 [ERROR] transcriber: [Drive] Ошибка при получении файлов: <HttpError 500 when requesting https://www.googleapis.com/drive/v3/files?q=%271rx9ZTORG7AB-82Qej-0iCZ4DkPM_OpgB%27+in+parents+and+trashed+%3D+false&fields=files%28id%2C+name%29&alt=json returned "Internal Error". Details: "[{'message': 'Internal Error', 'domain': 'global', 'reason': 'internalError'}]">
+
+===== 2025-12-06 =====
+2025-12-06 11:45:58 [ERROR] transcriber: [Drive] Ошибка при сохранении транскрипции: Folder not found
+2025-12-06 11:45:58 [ERROR] transcriber: [Worker] Ошибка при обработке Daily Design CRM (Yuliia UXUI)-20250901_090633UTC-Meeting Recording.mp4: 'NoneType' object has no attribute 'get'
